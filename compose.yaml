@@ -6,7 +6,7 @@ services:
       dockerfile: tools/air/Dockerfile
     environment:
       - TZ=Asia/Tokyo
-      - JAEGER_SERVICE_NAME=go_echo_jaeger
+      - JAEGER_SERVICE_NAME=go_chi_jaeger
       - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
     volumes:
       - ./:/app
