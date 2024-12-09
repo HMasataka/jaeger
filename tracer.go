@@ -20,6 +20,9 @@ const defaultComponentName = "chi"
 
 // TraceConfig defines the config for Trace middleware.
 type TraceConfig struct {
+	// Skipper defines a function to skip middleware.
+	Skipper Skipper
+
 	// OpenTracing Tracer instance which should be got before
 	Tracer opentracing.Tracer
 
@@ -40,7 +43,7 @@ type TraceConfig struct {
 	OperationNameFunc func(r *http.Request) string
 }
 
-func New(r chi.Router) io.Closer {
+func New(r chi.Router, skipper Skipper) io.Closer {
 	defaultConfig := config.Configuration{
 		ServiceName: "chi-tracer",
 		Sampler: &config.SamplerConfig{
@@ -65,7 +68,8 @@ func New(r chi.Router) io.Closer {
 	opentracing.SetGlobalTracer(tracer)
 
 	r.Use(TraceWithConfig(TraceConfig{
-		Tracer: tracer,
+		Tracer:  tracer,
+		Skipper: skipper,
 	}))
 
 	return closer
@@ -73,7 +77,10 @@ func New(r chi.Router) io.Closer {
 
 func TraceWithConfig(config TraceConfig) func(next http.Handler) http.Handler {
 	if config.Tracer == nil {
-		panic("echo: trace middleware requires opentracing tracer")
+		panic("trace middleware requires opentracing tracer")
+	}
+	if config.Skipper == nil {
+		config.Skipper = DefaultSkipper
 	}
 	if config.ComponentName == "" {
 		config.ComponentName = defaultComponentName
@@ -84,6 +91,11 @@ func TraceWithConfig(config TraceConfig) func(next http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if config.Skipper(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			operationName := config.OperationNameFunc(r)
 
 			realIP := ""

@@ -14,7 +14,7 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	c := jaeger.New(r)
+	c := jaeger.New(r, nil)
 	defer c.Close()
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
