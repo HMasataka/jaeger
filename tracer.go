@@ -116,8 +116,8 @@ func TraceWithConfig(config TraceConfig) func(next http.Handler) http.Handler {
 			}
 			defer sp.Finish()
 
-			ext.HTTPMethod.Set(sp, chi.RouteContext(r.Context()).RouteMethod)
-			ext.HTTPUrl.Set(sp, chi.RouteContext(r.Context()).RoutePattern())
+			ext.HTTPMethod.Set(sp, r.Method)
+			ext.HTTPUrl.Set(sp, getRoutePattern(r))
 			ext.Component.Set(sp, config.ComponentName)
 			sp.SetTag("client_ip", realIP)
 			sp.SetTag("request_id", requestID)
@@ -198,6 +198,30 @@ func generateToken() string {
 }
 
 func defaultOperationName(r *http.Request) string {
-	path := chi.RouteContext(r.Context()).RoutePattern()
+	path := getRoutePattern(r)
 	return " URL: " + path
+}
+
+func getRoutePattern(r *http.Request) string {
+	rctx := chi.RouteContext(r.Context())
+	if pattern := rctx.RoutePattern(); pattern != "" {
+		// Pattern is already available
+		return pattern
+	}
+
+	routePath := r.URL.Path
+	if r.URL.RawPath != "" {
+		routePath = r.URL.RawPath
+	}
+
+	tctx := chi.NewRouteContext()
+	if !rctx.Routes.Match(tctx, r.Method, routePath) {
+		// No matching pattern, so just return the request path.
+		// Depending on your use case, it might make sense to
+		// return an empty string or error here instead
+		return routePath
+	}
+
+	// tctx has the updated pattern, since Match mutates it
+	return tctx.RoutePattern()
 }
