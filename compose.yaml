@@ -1,10 +1,31 @@
 version: "3.8"
 services:
-  web:
+  air:
     build:
       context: .
       dockerfile: tools/air/Dockerfile
-    ports:
-      - 8080:8080
+    environment:
+      - TZ=Asia/Tokyo
+      - JAEGER_SERVICE_NAME=go_echo_jaeger
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
     volumes:
       - ./:/app
+    ports:
+      - 8080:8080
+    networks:
+      - jaeger
+
+  jaeger:
+    container_name: jaeger
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=debug
+    networks:
+      - jaeger
+
+networks:
+  jaeger:
